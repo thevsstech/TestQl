@@ -1,0 +1,18 @@
+#!/usr/bin/env php
+<?php
+// application.php
+use NovaTech\Tests\Cases\TestSimpleResponse;
+use NovaTech\Tests\Cases\TestSimpleResponseWithStatusCode;
+use NovaTech\Tests\Cases\TestSimpleRequest;
+
+require dirname(__DIR__, 2) . '/vendor/autoload.php';
+
+
+
+
+$application = new \Symfony\Component\Console\Application('Testql', 1.0);
+$application->addCommands([
+    new \NovaTech\TestQL\Command\RunTestsCommand()
+]);
+
+$application->run();
