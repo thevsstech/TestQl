@@ -2,12 +2,12 @@
   "require": {
     "symfony/console": "v6.1.7",
     "symfony/http-client": "v6.1.7",
-    "ryangjchandler/standalone-blade": "^0.1.0",
     "illuminate/collections": "^9.38"
 
   },
   "name": "nova-tech/testql",
   "version": "1.0.0",
+  "license": "MIT",
   "autoload": {
     "psr-4": {
       "NovaTech\\TestQL\\": "src/",
