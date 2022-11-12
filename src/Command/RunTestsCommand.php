@@ -97,7 +97,7 @@ TEXT;
             foreach ($failed as $item){
                 $style->writeln(
                     sprintf(
-                        'Test %s failed with "%s" message',
+                        'Test %s failed with <fg=;whitebg=#eb3734>"%s"</> message',
                         $item['test'],
                         $item['message']?? ''
                     )
@@ -108,7 +108,7 @@ TEXT;
             }
         }
 
-        $style->writeln(sprintf('Tests finished with <fg=red>%d</> fails, and <fg=green>%d</> success', count($failed), count($success)));
+        $style->writeln(sprintf('Tests finished with <fg=#eb3734>%d</> fails, and <fg=green>%d</> success', count($failed), count($success)));
 
 
 
@@ -116,6 +116,6 @@ TEXT;
         $progressBar->finish();
 
 
-        return Command::SUCCESS;
+        return count($failed) ? Command::FAILURE : Command::SUCCESS;
     }
 }
