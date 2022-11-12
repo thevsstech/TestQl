@@ -145,26 +145,55 @@ abstract class TestCase
         );
     }
 
-    private function checkDirective(
-        array      $items,
-        string     $type,
-        ?string $directiveType,
-        mixed      $value
-    )
+    /**
+     * @throws UnexpectedValueException
+     */
+    public function directive(
+        Response      $response,
+        string        $field,
+        ?string       $directiveType,
+        mixed         $value = null
+    ): static
     {
 
+        $items = $this->getArrKey($response->response, $field);
 
+        if (!is_array($items)) {
+            $items = [$items];
+        }
+
+
+        $throwException = fn(mixed $originalValue) => throw new UnexpectedValueException(
+            sprintf(
+                'Field "%s" does not follows directives as %s with params %s, value: %s',
+                $field,
+                $directiveType,
+                json_encode($value),
+                json_encode($originalValue)
+            )
+        );
+
+        $directive = new Directive();
+
+
+        foreach ($items as $item) {
+           $result = $directive->{$directiveType}($item, $value);
+
+            if (!$result) {
+                $throwException($item);
+            }
+        }
+
+        return $this;
     }
 
     /**
      * @throws UnexpectedValueException
      */
-    public function assertFieldToBeType(
+    public function assertFieldToBe(
         Response   $response,
         string     $field,
-        FieldType  $fieldType,
-        ?string $directiveType,
-        mixed      $value
+        FieldType  $expectedFieldType,
     ): static
     {
         $items = $this->getArrKey($response->response, $field);
@@ -197,22 +226,15 @@ abstract class TestCase
 
         foreach ($items as $item) {
             $itemsType = gettype($item);
-
-            foreach($testAgainst as $typeString => $type){
-
-
-                // lets check if any one of the fields is callable
-                // we will call the function and check if its true
-                if ($type instanceof \Closure && !$type($item)) {
-                    $throwException($typeString, $itemsType);
-                }
-
-                if($fieldType === $type && $itemsType !== $typeString){
-                    $throwException($typeString, $itemsType);
-                }
+            $checker = $testAgainst[$itemsType];
 
 
-
+            // lets check if any one of the fields is callable
+            // we will call the function and check if its true
+            if ($checker instanceof \Closure && !$checker($item)) {
+                $throwException($expectedFieldType, $itemsType);
+            } else if ($checker !== $expectedFieldType){
+                $throwException($expectedFieldType->name, $itemsType);
             }
         }
 

@@ -7,6 +7,7 @@ use NovaTech\TestQL\TestQl;
 use NovaTech\Tests\Cases\TestAsteriks;
 use NovaTech\Tests\Cases\TestClassUsesPersistentAuth;
 use NovaTech\Tests\Cases\TestDependency;
+use NovaTech\Tests\Cases\TestDirectives;
 use NovaTech\Tests\Cases\TestLocalhost;
 use NovaTech\Tests\Cases\TestPersistenAuth;
 use NovaTech\Tests\Cases\TestResponseFailing;
@@ -34,6 +35,7 @@ class RunTestsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+
         $style = new SymfonyStyle($input, $output);
         $verbose = $input->getOption('verbose');
         $logging = $input->getOption('logging') ?: false;
@@ -47,7 +49,8 @@ class RunTestsCommand extends Command
             new TestResponseFailing(),
             new TestPersistenAuth(),
             new TestClassUsesPersistentAuth(),
-            new TestAsteriks()
+            new TestAsteriks(),
+            new TestDirectives()
         ]);
         $testql = new TestQl(
             $resolver, $verbose, $logging
