@@ -7,7 +7,7 @@ class Response
 
     public function __construct(
         public readonly int $statusCode,
-        public readonly mixed $response,
+        public readonly array $response,
         public readonly RequestInformation $requestInformation
     )
     {
