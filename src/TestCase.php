@@ -2,6 +2,11 @@
 
 namespace NovaTech\TestQL;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Psr7\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -264,6 +269,26 @@ abstract class TestCase
         return $this;
     }
 
+    public function getFilteredTests(array $tests, array $groups)
+    {
+
+        if (empty($groups)) {
+            return $tests;
+        }
+
+        $filteredTests = [];
+        foreach ($tests as $test) {
+            foreach ($groups as $group) {
+                $testClass = get_class($test);
+                if (isset($this->groupsFixtureMapping[$group][$testClass])) {
+                    $filteredTests[$testClass] = $test;
+                    continue 2;
+                }
+            }
+        }
+
+        return $filteredTests;
+    }
     /**
      * @throws UnexpectedValueException
      */
@@ -316,17 +341,17 @@ abstract class TestCase
      * @throws \Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface
      * @throws \Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface
      * @throws \Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface
+     * @throws GuzzleException
      */
     public function request(
         string $method,
         string $url,
-        ?array $payload = [],
+        ?array $payload = null,
         ?array $headers = [],
         ?array $options = []
     ): Response
     {
-        $client = HttpClient::create($options);
-        $headers = $this->mapHeaders($headers);
+        $client = new Client($options);
 
 
         if (!isset($headers['accept'])) {
@@ -337,19 +362,34 @@ abstract class TestCase
             $headers['host'] =  parse_url($url)['host'] ?? null;
         }
 
-        $requestResponse = $client->request($method, $url, [
-            'headers' => $headers,
-            'json' => $payload,
-        ]);
-
-        $statusCode = $requestResponse->getStatusCode();
-
-        try {
-            $body = $requestResponse->toArray(false);
-        } catch (DecodingExceptionInterface $decodingException) {
-            $body = $requestResponse->getContent(false);
+        if (is_array($payload)) {
+            $headers['Content-Type'] = 'application/json';
         }
 
+        $statusCode = 0;
+        $body = [];
+
+        try {
+            $request = new Request(
+                $method,
+                $url,
+                $headers,
+                $payload ? json_encode($payload) : null
+            );
+            $response = $client->sendAsync($request)->wait();
+            $statusCode = $response->getStatusCode();
+            $body = json_decode((string) $response->getBody(), true);
+        }catch(RequestException $requestException){
+            $response = $requestException->getResponse();
+
+            if (!$response) {
+                $statusCode = 500;
+            }else{
+                $body = (string) $response->getBody();
+                $statusCode = $response->getStatusCode();
+                $body = json_decode($body, true);
+            }
+        }
 
         $requestInformation = new RequestInformation(
             $method,
@@ -358,10 +398,9 @@ abstract class TestCase
             $payload
         );
 
-
         $response = new Response(
             $statusCode,
-            $body,
+            $body ?? [],
             $requestInformation
         );
 

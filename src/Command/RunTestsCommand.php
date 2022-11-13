@@ -30,6 +30,7 @@ class RunTestsCommand extends Command
 
     protected function configure()
     {
+       $this->addOption('groups', 'g', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL, 'Groups to run');
        $this->addOption('exit-on-fail', 'f', InputOption::VALUE_OPTIONAL, 'Tests will stop running when even one test fails');
         $this->addOption('logging', 'l', InputOption::VALUE_OPTIONAL, 'Should we save logs');
     }
@@ -41,6 +42,7 @@ class RunTestsCommand extends Command
         $style = new SymfonyStyle($input, $output);
         $verbose = $input->getOption('verbose');
         $logging = $input->getOption('logging') ?: false;
+        $groups = $input->getOption('groups') ?? [];
 
         $resolver = new ArrayTestResolver([
             new TestAuthenticationResolver(),
@@ -81,7 +83,7 @@ TEXT;
         $failed = [];
         $success = [];
 
-        foreach ($testql->runTests() as $index =>  $output) {
+        foreach ($testql->runTests($groups) as $index =>  $output) {
             $progressBar->setMessage(sprintf('Running test %s instance', $output['test']));
 
             if ($output['status'] === false) {

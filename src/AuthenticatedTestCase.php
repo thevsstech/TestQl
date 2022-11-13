@@ -95,7 +95,7 @@ abstract class AuthenticatedTestCase extends TestCase
 
 
         if ($this->getAuthentication() && $this->getAuthentication()->type !== AuthenticationCapsule::NO_AUTHENTICATION && !isset($headers['authorization'])) {
-            $headers['authorization'] = sprintf('%s %s', mb_convert_case($this->getAuthentication()->type, MB_CASE_TITLE), $this->getAuthentication()->token);
+            $headers['Authorization'] = sprintf('%s %s', mb_convert_case($this->getAuthentication()->type, MB_CASE_TITLE), $this->getAuthentication()->token);
         }
 
 

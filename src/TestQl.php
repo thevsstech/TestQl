@@ -2,6 +2,10 @@
 
 namespace NovaTech\TestQL;
 
+use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Doctrine\Common\DataFixtures\Exception\CircularReferenceException;
+use Doctrine\Common\DataFixtures\FixtureInterface;
+use Doctrine\Common\DataFixtures\OrderedFixtureInterface;
 use NovaTech\TestQL\Entities\AuthenticationCapsule;
 use NovaTech\TestQL\Interfaces\AuthenticationResolverInterface;
 use NovaTech\TestQL\Interfaces\GroupedTestInterface;
@@ -85,35 +89,113 @@ class TestQl
         $this->dependencies = $dependencies;
     }
 
+
     /**
-     * Sorts tests based on dependencies
+     * @psalm-param array<class-string<DependentFixtureInterface>, int> $sequences
+     * @psalm-param iterable<class-string<FixtureInterface>>|null       $classes
      *
-     * @return array
+     * @psalm-return array<class-string<FixtureInterface>>
      */
-    public function getSortedTests(array $dependencies): array
+    private function getUnsequencedClasses(array $sequences, ?iterable $classes = null): array
     {
-        $sortedTests = [];
+        $unsequencedClasses = [];
 
-
-        foreach ($dependencies as $class => $dependency) {
-            $sortedTests = [
-                ...$sortedTests,
-                ...$dependency,
-                $class
-            ];
+        if ($classes === null) {
+            $classes = array_keys($sequences);
         }
 
-        $tests = array_unique([...$sortedTests], SORT_REGULAR);
+        foreach ($classes as $class) {
+            if ($sequences[$class] !== -1) {
+                continue;
+            }
 
-        $classNames =  array_map('get_class', $this->tests);
+            $unsequencedClasses[] = $class;
+        }
 
-        foreach ($classNames as $class){
-            if (!in_array($class, $tests, true)) {
-                $tests[] = $class;
+        return $unsequencedClasses;
+    }
+
+    /**
+     * Orders fixtures by dependencies
+     *
+     * @return void
+     */
+    private function orderFixturesByDependencies($allTests)
+    {
+        /** @psalm-var array<class-string<DependentFixtureInterface>, int> */
+        $sequenceForClasses = [];
+
+
+
+        // First we determine which classes has dependencies and which don't
+        foreach ($allTests as $test) {
+            $testClass = get_class($test);
+
+
+            if ($test instanceof TestDependsOnInterface) {
+                $dependenciesClasses = $test->dependsOn();
+
+                if (in_array($testClass, $dependenciesClasses)) {
+                    throw new \InvalidArgumentException(sprintf(
+                        'Class "%s" can\'t have itself as a dependency',
+                        $testClass
+                    ));
+                }
+
+                // We mark this class as unsequenced
+                $sequenceForClasses[$testClass] = -1;
+            } else {
+                // This class has no dependencies, so we assign 0
+                $sequenceForClasses[$testClass] = 0;
             }
         }
-        return array_reverse($tests);
+
+        // Now we order fixtures by sequence
+        $sequence  = 1;
+        $lastCount = -1;
+
+        $tests = $this->convertTests($allTests);
+        while (($count = count($unsequencedClasses = $this->getUnsequencedClasses($sequenceForClasses))) > 0 && $count !== $lastCount) {
+            foreach ($unsequencedClasses as $key => $class) {
+                $fixture                 = $tests[$class];
+                $dependencies            = $fixture->dependsOn();
+                $unsequencedDependencies = $this->getUnsequencedClasses($sequenceForClasses, $dependencies);
+
+                if (count($unsequencedDependencies) !== 0) {
+                    continue;
+                }
+
+                $sequenceForClasses[$class] = $sequence++;
+            }
+
+            $lastCount = $count;
+        }
+
+        $orderedFixtures = [];
+
+        // If there're fixtures unsequenced left and they couldn't be sequenced,
+        // it means we have a circular reference
+        if ($count > 0) {
+            $msg  = 'Classes "%s" have produced a CircularReferenceException. ';
+            $msg .= 'An example of this problem would be the following: Class C has class B as its dependency. ';
+            $msg .= 'Then, class B has class A has its dependency. Finally, class A has class C as its dependency. ';
+            $msg .= 'This case would produce a CircularReferenceException.';
+
+            throw new \Exception(sprintf($msg, implode(',', $unsequencedClasses)));
+        } else {
+            // We order the classes by sequence
+            asort($sequenceForClasses);
+
+            foreach ($sequenceForClasses as $class => $sequence) {
+                // If fixtures were ordered
+                $orderedFixtures[] = $tests[$class];
+            }
+        }
+
+        return $orderedFixtures;
     }
+
+
 
     public function getGroupFilteredTests(array $tests, array $groups) : array
     {
@@ -145,26 +227,26 @@ class TestQl
             $testsPrepared[get_class($test)] = $test;
         }
 
-        return array_map(fn($test) => $testsPrepared[$test], $tests);
+        return $testsPrepared;
     }
 
 
-    
-    public function runTests(mixed $payload = null, array $groups = []): array|\Generator
+
+    /**
+     * @throws \Exception
+     */
+    public function runTests( array $groups = []): array|\Generator
     {
+        $payload = [];
         $outputs = [];
         $stacktrace = [];
-        $tests = $this->getSortedTests($this->dependencies);
+        $tests = $this->orderFixturesByDependencies(
+            $this->getGroupFilteredTests($this->tests, $groups)
+        );
         $persistentAuthentication = null;
 
-        if (count($groups)) {
-            $tests = $this->getGroupFilteredTests($tests, $groups );
-
-        }
 
 
-
-        $tests = $this->convertTests($tests);
         foreach ($tests as $test) {
             $className =get_class($test);
             try {

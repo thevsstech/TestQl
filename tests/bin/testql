@@ -1,13 +1,16 @@
 #!/usr/bin/env php
 <?php
+require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 
 // application.php
+use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\Request;
 use NovaTech\Tests\Cases\TestSimpleResponse;
 use NovaTech\Tests\Cases\TestSimpleResponseWithStatusCode;
 use NovaTech\Tests\Cases\TestSimpleRequest;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+
 
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
@@ -19,3 +22,4 @@ $application->addCommands([
 ]);
 
 $application->run();
+

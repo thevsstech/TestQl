@@ -24,7 +24,7 @@ class TestClassUsesPersistentAuth extends TestCase implements TestDependsOnInter
 
     public function authenticate(AuthenticationCapsule|array|null $authenticationCapsule = null): array|AuthenticationCapsule
     {
-        if (!$authenticationCapsule || $authenticationCapsule?->token !== 'test') {
+        if (!$authenticationCapsule || $authenticationCapsule?->identifier !== 'admin@vss.com') {
             throw new \UnexpectedValueException('Wrong authentication');
         }
 
