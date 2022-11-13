@@ -5,7 +5,7 @@ namespace NovaTech\TestQL\Resolvers;
 use NovaTech\TestQL\Interfaces\TestCaseResolverInterface;
 use NovaTech\TestQL\TestCase;
 
-class DirectoryResolvers implements  TestCaseResolverInterface
+class DirectoryResolver implements  TestCaseResolverInterface
 {
     public function __construct(
         public string $directory = '',
