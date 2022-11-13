@@ -2,8 +2,9 @@
   "require": {
     "symfony/console": "v6.1.7",
     "symfony/http-client": "v6.1.7",
-    "illuminate/collections": "^9.38"
-
+    "illuminate/collections": "^9.38",
+    "illuminate/support": "^9.39",
+    "guzzlehttp/guzzle": "^7.5"
   },
   "name": "nova-tech/testql",
   "version": "1.0.0",
@@ -19,5 +20,8 @@
       "name": "Vahit Serif Saglam",
       "email": "admin@thevss.tech"
     }
-  ]
+  ],
+  "require-dev": {
+    "vlucas/phpdotenv": "^5.5"
+  }
 }

@@ -74,7 +74,11 @@ class TestQl
 
         foreach ($this->tests as $test) {
             if ($test instanceof TestDependsOnInterface) {
-                $dependencies[get_class($test)] = $test->dependsOn();
+                $dependsOn = $test->dependsOn();
+
+                foreach ($dependsOn as $dependency) {
+                    $dependencies[$dependency][] = get_class($test);
+                }
             }
         }
 
@@ -99,9 +103,16 @@ class TestQl
             ];
         }
 
-        $tests = [...$sortedTests, ...array_map('get_class', $this->tests)];
+        $tests = array_unique([...$sortedTests], SORT_REGULAR);
 
-        return array_unique($tests);
+        $classNames =  array_map('get_class', $this->tests);
+
+        foreach ($classNames as $class){
+            if (!in_array($class, $tests, true)) {
+                $tests[] = $class;
+            }
+        }
+        return array_reverse($tests);
     }
 
     public function getGroupFilteredTests(array $tests, array $groups) : array
@@ -157,7 +168,11 @@ class TestQl
         foreach ($tests as $test) {
             $className =get_class($test);
             try {
-                $localAuthentication = null;
+                $localAuthentication = $test instanceof AuthenticatedTestCase ? $persistentAuthentication : new AuthenticationCapsule(
+                    'none',
+                    ''
+                );
+
                 if ($test instanceof AuthenticationResolverInterface) {
 
                     // lets try the authentication information from authenticate method
@@ -169,12 +184,6 @@ class TestQl
                        $test instanceof IgnorePersistentAuthenticationInterface ? null : $persistentAuthentication
                     );
 
-                    if (!$localAuthentication) {
-                        $localAuthentication = new AuthenticationCapsule(
-                            'none',
-                            ''
-                        );
-                    }
 
 
                     // persist authentication information to used in other test
@@ -224,6 +233,9 @@ class TestQl
                 foreach($localAuthentication as $index => $auth){
                     if ($test instanceof TestCase) {
                         $test->setPreviousResponses($this->responses);
+                    }
+
+                    if ($test instanceof AuthenticatedTestCase) {
                         $test->setAuthentication($auth);
                     }
 

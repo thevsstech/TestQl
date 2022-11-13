@@ -19,7 +19,7 @@ class TestClassUsesPersistentAuth extends TestCase implements TestDependsOnInter
 
     public function dependsOn(): array
     {
-        return [TestPersistenAuth::class];
+        return [TestAuthenticationResolver::class];
     }
 
     public function authenticate(AuthenticationCapsule|array|null $authenticationCapsule = null): array|AuthenticationCapsule

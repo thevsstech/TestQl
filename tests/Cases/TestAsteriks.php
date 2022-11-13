@@ -25,7 +25,6 @@ class TestAsteriks extends TestCase
         ];
 
 
-        var_dump($this->getArrKey($data, 'items.*.field'));
 
         return null;
     }

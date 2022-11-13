@@ -11,10 +11,6 @@ use NovaTech\TestQL\Entities\FieldType;
 use NovaTech\TestQL\Entities\RequestInformation;
 use NovaTech\TestQL\Entities\Response;
 use NovaTech\TestQL\Exceptions\UnexpectedValueException;
-use Symfony\Component\HttpClient\Exception\ClientException;
-use Symfony\Component\HttpClient\HttpClient;
-use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 abstract class TestCase
 {
@@ -333,13 +329,17 @@ abstract class TestCase
         $headers = $this->mapHeaders($headers);
 
 
-        if ($this->getAuthentication() && $this->getAuthentication()->type !== AuthenticationCapsule::NO_AUTHENTICATION && !isset($headers['authorization'])) {
-            $headers['authorization'] = sprintf('%s %s', $this->getAuthentication()->type, $this->getAuthentication()->token);
+        if (!isset($headers['accept'])) {
+            $headers['accept'] = 'application/json';
+        }
+
+        if(!isset($headers['host'])) {
+            $headers['host'] =  parse_url($url)['host'] ?? null;
         }
 
         $requestResponse = $client->request($method, $url, [
             'headers' => $headers,
-            'body' => $payload,
+            'json' => $payload,
         ]);
 
         $statusCode = $requestResponse->getStatusCode();
