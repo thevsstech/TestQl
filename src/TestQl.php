@@ -201,10 +201,13 @@ class TestQl
     {
         $newTests = [];
 
+        if (empty($groups)) {
+            return $tests;
+        }
+
         $testsPrepared = $this->convertTests($tests);
 
-        foreach ($tests as $test) {
-            $instance = $testsPrepared[$test];
+        foreach ($tests as $test => $instance) {
             if ($instance instanceof GroupedTestInterface) {
                 $testGroups = $instance->getGroups();
 
