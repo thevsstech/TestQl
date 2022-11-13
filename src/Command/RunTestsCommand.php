@@ -3,6 +3,8 @@
 namespace NovaTech\TestQL\Command;
 
 use NovaTech\TestQL\Resolvers\ArrayTestResolver;
+use NovaTech\TestQL\Resolvers\DirectoryResolver;
+use NovaTech\TestQL\Resolvers\FileResolver;
 use NovaTech\TestQL\TestQl;
 use NovaTech\Tests\Cases\TestApiResolvesDashboard;
 use NovaTech\Tests\Cases\TestAsteriks;
@@ -30,8 +32,11 @@ class RunTestsCommand extends Command
 
     protected function configure()
     {
-       $this->addOption('groups', 'g', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL, 'Groups to run');
-       $this->addOption('exit-on-fail', 'f', InputOption::VALUE_OPTIONAL, 'Tests will stop running when even one test fails');
+        $this->addOption('ignoreClasses', 'i', InputOption::VALUE_OPTIONAL, 'Classes to ignore');
+        $this->addOption('directory', null, InputOption::VALUE_OPTIONAL, 'director path for directory resolver');
+        $this->addOption('file', null, InputOption::VALUE_OPTIONAL, 'file path for file resolver');
+        $this->addOption('resolver', 'r', InputOption::VALUE_REQUIRED, 'test resolver');
+        $this->addOption('groups', 'g', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL, 'Groups to run');
         $this->addOption('logging', 'l', InputOption::VALUE_OPTIONAL, 'Should we save logs');
     }
 
@@ -43,28 +48,37 @@ class RunTestsCommand extends Command
         $verbose = $input->getOption('verbose');
         $logging = $input->getOption('logging') ?: false;
         $groups = $input->getOption('groups') ?? [];
+        $resolverName = $input->getOption('resolver') ?? null;
+        $file = $input->getOption('file')?? null;
+        $directory = $input->getOption('directory')?? null;
+        $ignoreClasses = $input->getOption('ignoreClasses')?? [];
 
-        $resolver = new ArrayTestResolver([
-            new TestAuthenticationResolver(),
-           new TestSimpleResponseWithStatusCode(),
-           new TestSimpleResponse(),
-           new TestSimpleRequest(),
-           new TestDependency(),
-            new TestLocalhost(),
-            new TestResponseFailing(),
-            new TestClassUsesPersistentAuth(),
-            new TestAsteriks(),
-            new TestDirectives(),
-            new TestApiResolvesDashboard(),
-            new TestWithNoDependency()
-        ]);
+        $resolvers = [
+            'directory' => $directory ? fn() => new DirectoryResolver($directory, $ignoreClasses) : fn() => throw new \InvalidArgumentException(
+                'Please provide a directory to scan through the test classes'
+            ),
+            'file' => $file ?  fn() => new FileResolver($file) : fn() => throw new \InvalidArgumentException(
+                'Please provide a file to resolve'
+            )
+        ];
+
+
+        $resolver = $resolvers[$resolverName] ?? null;
+
+        if (!$resolver) {
+            throw new \InvalidArgumentException(
+                sprintf('Invalid resolver "%s" provided, available resolvers are %s, %s', $resolverName, 'directory', 'file')
+            );
+        }
+
         $testql = new TestQl(
             $resolver, $verbose, $logging
         );
+
         $count = count($resolver->getTestCases());
         $style->info(sprintf('Running  %d tests resolved with %s', $count, get_class($resolver)));
 
-        $progressBar = new ProgressBar($output, $count, );
+        $progressBar = new ProgressBar($output, $count,);
         $progressBar->setMessage('');
         $format = <<<TEXT
 %current%/%max% [%bar%] %percent:3s%%
@@ -83,13 +97,13 @@ TEXT;
         $failed = [];
         $success = [];
 
-        foreach ($testql->runTests($groups) as $index =>  $output) {
+        foreach ($testql->runTests($groups) as $index => $output) {
             $progressBar->setMessage(sprintf('Running test %s instance', $output['test']));
 
             if ($output['status'] === false) {
                 $failed[] = $output;
-               // $style->writeln(sprintf('Test %s failed with "%s" message', $output['test'], $output['message'] ?? ''));
-            }else{
+                // $style->writeln(sprintf('Test %s failed with "%s" message', $output['test'], $output['message'] ?? ''));
+            } else {
                 $success[] = $output;
             }
 
@@ -98,25 +112,21 @@ TEXT;
         }
 
 
+        foreach ($failed as $item) {
+            $style->writeln(
+                sprintf(
+                    'Test %s failed with <fg=;whitebg=#eb3734>"%s"</> message',
+                    $item['test'],
+                    $item['message'] ?? ''
+                )
+            );
 
-
-            foreach ($failed as $item){
-                $style->writeln(
-                    sprintf(
-                        'Test %s failed with <fg=;whitebg=#eb3734>"%s"</> message',
-                        $item['test'],
-                        $item['message']?? ''
-                    )
-                );
-
-                if ($verbose) {
+            if ($verbose) {
                 $style->writeln($item['stacktrace'] ?? '');
             }
         }
 
         $style->writeln(sprintf('Tests finished with <fg=#eb3734>%d</> fails, and <fg=green>%d</> success', count($failed), count($success)));
-
-
 
 
         $progressBar->finish();
