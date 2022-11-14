@@ -71,6 +71,7 @@ class RunTestsCommand extends Command
             );
         }
 
+        $resolver = $resolver();
         $testql = new TestQl(
             $resolver, $verbose, $logging
         );

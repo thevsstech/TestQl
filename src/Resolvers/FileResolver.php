@@ -10,10 +10,26 @@ class FileResolver implements TestCaseResolverInterface
     {
     }
 
+    public function getFilePath()
+    {
+        
+    }
+
+    private function getFile()
+    {
+        return implode(
+            DIRECTORY_SEPARATOR,
+            [
+                getcwd(),
+                $this->file,
+            ]
+        );
+    }
+
     private function checkFile()
     {
-        if (!is_dir($this->file)) {
-            throw new \InvalidArgumentException(sprintf('File "%s" does not exist.', $this->file));
+        if (!file_exists($this->getFile())) {
+            throw new \InvalidArgumentException(sprintf('File "%s" does not exist.', $this->getFile()));
         }
     }
 
@@ -25,10 +41,10 @@ class FileResolver implements TestCaseResolverInterface
     {
        $this->checkFile();
 
-       $return = require_once $this->file;
+       $return = require_once $this->getFile();
 
         if (!$return instanceof TestCaseResolverInterface) {
-            throw new \InvalidArgumentException(sprintf('File "%s" must return a resolver.', $this->file));
+            throw new \InvalidArgumentException(sprintf('File "%s" must return a resolver.', $this->getFile()));
         }
 
         return $return->getTestCases();
