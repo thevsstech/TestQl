@@ -364,6 +364,15 @@ abstract class TestCase
 
     }
 
+    protected function outputVerbose(string $log): void
+    {
+        if ($this->isVerbose() && $this->getSymfonyStyle() ) {
+        $this->getSymfonyStyle()
+            ->writeln($log);
+    }
+
+    }
+
     /**
      * @param string $method
      * @param string $url
@@ -400,20 +409,16 @@ abstract class TestCase
             $headers['Content-Type'] = 'application/json';
         }
 
-        if ($this->isVerbose() && $this->getSymfonyStyle() ) {
-            $this->getSymfonyStyle()
-                ->writeln(
-                    sprintf(
-                        'Request Method: "%s", Uri: "%s", Payload: "%s", Headers: "%s"',
-                        $method,
-                        $url,
-                        json_encode($payload),
-                        json_encode($headers)
-                    ));
-        }
+
         $statusCode = 0;
         $body = [];
-
+        $this->outputVerbose( sprintf(
+            'Request Method: "%s", Uri: "%s", Payload: "%s", Headers: "%s"',
+            $method,
+            $url,
+            json_encode($payload),
+            json_encode($headers)
+        ));
         try {
             $request = new Request(
                 $method,
