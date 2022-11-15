@@ -18,7 +18,6 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class TestQl
 {
     private array $tests = [];
-    private ?SymfonyStyle $style;
     private array $dependencies = [];
     private array $responses = [];
 
@@ -31,6 +30,7 @@ class TestQl
         public readonly TestCaseResolverInterface $resolver,
         public readonly bool                      $verbose = false,
         public readonly bool                      $logging = false,
+        private readonly ?SymfonyStyle             $style = null
 
     )
     {
@@ -251,6 +251,13 @@ class TestQl
 
 
         foreach ($tests as $test) {
+
+            // set symfony style
+            if ($test instanceof TestCase) {
+                $test->setIsVerbose($this->verbose);
+                $test->setSymfonyStyle($this->style);
+            }
+
             $className =get_class($test);
             try {
                 $localAuthentication = $test instanceof AuthenticatedTestCase ? $persistentAuthentication : new AuthenticationCapsule(

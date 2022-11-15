@@ -41,7 +41,7 @@ class FileResolver implements TestCaseResolverInterface
     {
        $this->checkFile();
 
-       $return = require_once $this->getFile();
+       $return = include $this->getFile();
 
         if (!$return instanceof TestCaseResolverInterface) {
             throw new \InvalidArgumentException(sprintf('File "%s" must return a resolver.', $this->getFile()));

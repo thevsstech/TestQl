@@ -73,11 +73,14 @@ class RunTestsCommand extends Command
 
         $resolver = $resolver();
         $testql = new TestQl(
-            $resolver, $verbose, $logging
+            $resolver, $verbose, $logging, $style
         );
 
         $count = count($resolver->getTestCases());
-        $style->info(sprintf('Running  %d tests resolved with %s', $count, get_class($resolver)));
+        if ($verbose) {
+            $style->info(sprintf('Running  %d tests resolved with %s', $count, get_class($resolver)));
+
+        }
 
         $progressBar = new ProgressBar($output, $count,);
         $progressBar->setMessage('');

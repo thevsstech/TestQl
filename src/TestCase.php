@@ -16,6 +16,7 @@ use NovaTech\TestQL\Entities\FieldType;
 use NovaTech\TestQL\Entities\RequestInformation;
 use NovaTech\TestQL\Entities\Response;
 use NovaTech\TestQL\Exceptions\UnexpectedValueException;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 abstract class TestCase
 {
@@ -26,7 +27,40 @@ abstract class TestCase
 
     protected ?Response $response = null;
     private array $previousResponses = [];
+    private ?SymfonyStyle $symfonyStyle = null;
+    private bool $isVerbose = false;
 
+    /**
+     * @param bool $isVerbose
+     */
+    public function setIsVerbose(bool $isVerbose): void
+    {
+        $this->isVerbose = $isVerbose;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isVerbose(): bool
+    {
+        return $this->isVerbose;
+    }
+
+    /**
+     * @param SymfonyStyle|null $symfonyStyle
+     */
+    public function setSymfonyStyle(?SymfonyStyle $symfonyStyle): void
+    {
+        $this->symfonyStyle = $symfonyStyle;
+    }
+
+    /**
+     * @return SymfonyStyle|null
+     */
+    public function getSymfonyStyle(): ?SymfonyStyle
+    {
+        return $this->symfonyStyle;
+    }
     /**
      * @param array $previousResponses
      */
@@ -366,6 +400,17 @@ abstract class TestCase
             $headers['Content-Type'] = 'application/json';
         }
 
+        if ($this->isVerbose() && $this->getSymfonyStyle() ) {
+            $this->getSymfonyStyle()
+                ->writeln(
+                    sprintf(
+                        'Request Method: "%s", Uri: "%s", Payload: "%s", Headers: "%s"',
+                        $method,
+                        $url,
+                        json_encode($payload),
+                        json_encode($headers)
+                    ));
+        }
         $statusCode = 0;
         $body = [];
 
