@@ -5,7 +5,8 @@
     "illuminate/collections": "^9.38",
     "illuminate/support": "^9.39",
     "guzzlehttp/guzzle": "^7.5",
-    "psr/log": "^3.0"
+    "psr/log": "^3.0",
+    "symfony/yaml": "^6.1"
   },
   "name": "nova-tech/testql",
   "version": "1.0.0",

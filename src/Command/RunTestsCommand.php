@@ -25,6 +25,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Yaml\Exception\ParseException;
+use Symfony\Component\Yaml\Yaml;
 
 #[AsCommand('run:test')]
 class RunTestsCommand extends Command
@@ -35,9 +37,75 @@ class RunTestsCommand extends Command
         $this->addOption('ignoreClasses', 'i', InputOption::VALUE_OPTIONAL, 'Classes to ignore');
         $this->addOption('directory', null, InputOption::VALUE_OPTIONAL, 'director path for directory resolver');
         $this->addOption('file', null, InputOption::VALUE_OPTIONAL, 'file path for file resolver');
-        $this->addOption('resolver', 'r', InputOption::VALUE_REQUIRED, 'test resolver');
+        $this->addOption('resolver', 'r', InputOption::VALUE_OPTIONAL, 'test resolver');
         $this->addOption('groups', 'g', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL, 'Groups to run');
         $this->addOption('logging', 'l', InputOption::VALUE_OPTIONAL, 'Should we save logs');
+        $this->addOption('config-file', 'c', InputOption::VALUE_OPTIONAL, 'File path the parse configs');
+        $this->addOption('tests', 't', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL, 'The test classes to run');
+
+    }
+
+    private function getConfigContent(
+        string  $configFilePath,
+        ?bool   &$verbose,
+        ?bool   &$logging,
+        ?string &$resolverName,
+        ?string &$file,
+        ?string &$directory,
+        ?array  &$ignoreClasses,
+        ?array  &$testClasses,
+    )
+    {
+        if (!file_exists($configFilePath) || !is_readable($configFilePath)) {
+            throw new \InvalidArgumentException(
+                sprintf('Config file %s does not exist or not readable', $configFilePath)
+            );
+        }
+
+        $configContent = file_get_contents($configFilePath);
+
+        try {
+            $config = Yaml::parse($configContent);
+
+            if (isset($config['verbose'])) {
+                $verbose = $config['verbose'];
+            }
+
+            if (isset($config['logging'])) {
+                $logging = $config['logging'];
+            }
+
+            if (isset($config['resolver'])) {
+                $resolverArray = $config['resolver'];
+                $resolverName = $resolverArray['name'] ?? null;
+
+
+                if (!$resolverName) {
+                    throw new \InvalidArgumentException(
+                        'You must provide a resolver to run tests'
+                    );
+                }
+
+                if (isset($config['file'])) {
+                    $file = $config['file'];
+                }
+
+                if (isset($config['directory'])) {
+                    $directory = $config['directory'];
+                }
+
+            }
+
+            if (isset($config['ignored'])) {
+                $ignoreClasses = $config['ignored'];
+            }
+
+
+        } catch (ParseException $exception) {
+            printf('Unable to parse the YAML string: %s', $exception->getMessage());
+        }
+
+
     }
 
 
@@ -49,17 +117,42 @@ class RunTestsCommand extends Command
         $logging = $input->getOption('logging') ?: false;
         $groups = $input->getOption('groups') ?? [];
         $resolverName = $input->getOption('resolver') ?? null;
-        $file = $input->getOption('file')?? null;
-        $directory = $input->getOption('directory')?? null;
-        $ignoreClasses = $input->getOption('ignoreClasses')?? [];
+        $file = $input->getOption('file') ?? null;
+        $directory = $input->getOption('directory') ?? null;
+        $ignoreClasses = $input->getOption('ignoreClasses') ?? [];
+        $configFilePath = $input->getOption('config-file') ?? null;
+        $testClasses = $input->getOption('tests') ?? null;
+
+        if (!$configFilePath && !$resolverName) {
+            throw new \InvalidArgumentException(
+                'You must provide a config-file or resolver to run tests'
+            );
+        }
+
+        if ($configFilePath) {
+            $configFilePath = realpath($configFilePath);
+            $this->getConfigContent($configFilePath,
+                $verbose,
+                $logging,
+                $resolverName,
+                $file,
+                $directory,
+                $ignoreClasses,
+                $testClasses
+            );
+        }
 
         $resolvers = [
             'directory' => $directory ? fn() => new DirectoryResolver($directory, $ignoreClasses) : fn() => throw new \InvalidArgumentException(
                 'Please provide a directory to scan through the test classes'
             ),
-            'file' => $file ?  fn() => new FileResolver($file) : fn() => throw new \InvalidArgumentException(
+            'file' => $file ? fn() => new FileResolver($file) : fn() => throw new \InvalidArgumentException(
                 'Please provide a file to resolve'
+            ),
+            'list' => $testClasses ? fn() => new ArrayTestResolver($testClasses) : fn() => throw new \InvalidArgumentException(
+                'Please provide a test classes to run'
             )
+
         ];
 
 
