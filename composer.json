@@ -6,11 +6,15 @@
     "illuminate/support": "^9.39",
     "guzzlehttp/guzzle": "^7.5",
     "psr/log": "^3.0",
-    "symfony/yaml": "^6.1"
+    "symfony/yaml": "^6.1",
+    "vlucas/phpdotenv": "^5.5"
   },
   "name": "nova-tech/testql",
   "version": "1.0.1",
   "license": "MIT",
+  "bin": [
+    "bin/testql"
+  ],
   "autoload": {
     "psr-4": {
       "NovaTech\\TestQL\\": "src/",
@@ -22,8 +26,5 @@
       "name": "Vahit Serif Saglam",
       "email": "admin@thevss.tech"
     }
-  ],
-  "require-dev": {
-    "vlucas/phpdotenv": "^5.5"
-  }
+  ]
 }
