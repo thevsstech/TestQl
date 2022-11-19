@@ -23,7 +23,7 @@ class TestAuthenticationResolver extends TestCase implements AuthenticationResol
 
         foreach ($auths as $auth){
             $response = $this->request('POST', $_ENV['TEST_AUTH_URL'].'/auth/login', $auth);
-            $capsules[]= new AuthenticationCapsule('bearer', $response->response['token'], $_ENV['TEST_AUTH_EMAIL']);
+            $capsules[]= new AuthenticationCapsule('bearer', $response->response['token'] ?? '', $_ENV['TEST_AUTH_EMAIL']);
 
         }
 

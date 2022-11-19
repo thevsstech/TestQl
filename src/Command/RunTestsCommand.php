@@ -44,7 +44,7 @@ class RunTestsCommand extends Command
         $this->addOption('logging', 'l', InputOption::VALUE_OPTIONAL, 'Should we save logs');
         $this->addOption('config-file', 'c', InputOption::VALUE_OPTIONAL, 'File path the parse configs');
         $this->addOption('tests', 't', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL, 'The test classes to run');
-
+        $this->addOption('strict', 's', InputOption::VALUE_OPTIONAL, 'Test resolving should be strict');
     }
 
     /**
@@ -71,7 +71,8 @@ class RunTestsCommand extends Command
         ?string &$directory,
         ?array  &$ignoreClasses,
         ?array  &$testClasses,
-    )
+        ?bool   &$strict
+    ): void
     {
         if (!file_exists($configFilePath) || !is_readable($configFilePath)) {
             throw new \InvalidArgumentException(
@@ -142,6 +143,10 @@ class RunTestsCommand extends Command
                 if (isset($resolverArray['ignored'])) {
                     $ignoreClasses = $resolverArray['ignored'];
                 }
+
+                if (isset($resolverArray['strict'])) {
+                    $strict = $resolverArray['strict'];
+                }
             }
 
 
@@ -164,6 +169,7 @@ class RunTestsCommand extends Command
         $ignoreClasses = $input->getOption('ignoreClasses') ?? [];
         $configFilePath = $input->getOption('config-file') ?? null;
         $testClasses = $input->getOption('tests') ?? null;
+        $strict = $input->getOption('strict') ?? true;
 
         if (!$configFilePath && !$resolverName) {
             throw new \InvalidArgumentException(
@@ -180,7 +186,8 @@ class RunTestsCommand extends Command
                 $file,
                 $directory,
                 $ignoreClasses,
-                $testClasses
+                $testClasses,
+                $strict
             );
         }
 
@@ -192,13 +199,13 @@ class RunTestsCommand extends Command
             ),
             'file' => $file ? fn() : TestCaseResolverInterface => new FileResolver(
                 $file,
-                $ignoreClasses
             ) : fn() => throw new \InvalidArgumentException(
                 'Please provide a file to resolve'
             ),
             'list' => $testClasses ? fn() : TestCaseResolverInterface => new FileListResolver(
                 $testClasses,
-                $ignoreClasses
+                $ignoreClasses,
+                $strict
             ) : fn() => throw new \InvalidArgumentException(
                 'Please provide a test classes to run'
             )

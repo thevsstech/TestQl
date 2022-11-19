@@ -10,7 +10,8 @@ class FileListResolver implements  TestCaseResolverInterface
 {
     public function __construct(
         public array $fileList =[],
-        public array $ignoreClasses = []
+        public array $ignoreClasses = [],
+        private bool $strict = false
     )
     {
 
@@ -126,7 +127,8 @@ class FileListResolver implements  TestCaseResolverInterface
         {
             $class = static::getResolverClassFromPath(
                 $file,
-                $this->ignoreClasses
+                $this->ignoreClasses,
+                $this->strict
             );
 
             if ($class) {
