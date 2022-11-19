@@ -10,7 +10,7 @@
     "vlucas/phpdotenv": "^5.5"
   },
   "name": "nova-tech/testql",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "license": "MIT",
   "bin": [
     "bin/testql"
