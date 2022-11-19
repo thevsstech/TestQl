@@ -2,8 +2,10 @@
 
 namespace NovaTech\TestQL\Command;
 
+use NovaTech\TestQL\Interfaces\TestCaseResolverInterface;
 use NovaTech\TestQL\Resolvers\ArrayTestResolver;
 use NovaTech\TestQL\Resolvers\DirectoryResolver;
+use NovaTech\TestQL\Resolvers\FileListResolver;
 use NovaTech\TestQL\Resolvers\FileResolver;
 use NovaTech\TestQL\TestQl;
 use NovaTech\Tests\Cases\TestApiResolvesDashboard;
@@ -45,6 +47,21 @@ class RunTestsCommand extends Command
 
     }
 
+    /**
+     * this function will try to read given config path
+     * if file could not found it will throw an array
+     * if file is exists it will read resolver, logging, verbose, options from it.
+     *
+     * @param string $configFilePath
+     * @param bool|null $verbose
+     * @param bool|null $logging
+     * @param string|null $resolverName
+     * @param string|null $file
+     * @param string|null $directory
+     * @param array|null $ignoreClasses
+     * @param array|null $testClasses
+     * @return void
+     */
     private function getConfigContent(
         string  $configFilePath,
         ?bool   &$verbose,
@@ -67,6 +84,30 @@ class RunTestsCommand extends Command
         try {
             $config = Yaml::parse($configContent);
 
+
+
+            if (isset($config['env'])) {
+                $environments = $config['env'];
+
+
+                if (!is_array($environments)) {
+                    throw new \InvalidArgumentException(
+                        '"env" defination in yaml must be an array'
+                    );
+                }
+
+                $_ENV = [
+                    ...$_ENV,
+                    ...$environments
+                ];
+
+                $_SERVER = [
+                    ...$_SERVER,
+                    ...$environments
+                ];
+            }
+
+
             if (isset($config['verbose'])) {
                 $verbose = $config['verbose'];
             }
@@ -86,26 +127,27 @@ class RunTestsCommand extends Command
                     );
                 }
 
-                if (isset($config['file'])) {
-                    $file = $config['file'];
+                if (isset($resolverArray['file'])) {
+                    $file = $resolverArray['file'];
                 }
 
-                if (isset($config['directory'])) {
-                    $directory = $config['directory'];
+                if (isset($resolverArray['directory'])) {
+                    $directory = $resolverArray['directory'];
                 }
 
-            }
+                if (isset($resolverArray['tests'])) {
+                    $testClasses = $resolverArray['tests'];
+                }
 
-            if (isset($config['ignored'])) {
-                $ignoreClasses = $config['ignored'];
+                if (isset($resolverArray['ignored'])) {
+                    $ignoreClasses = $resolverArray['ignored'];
+                }
             }
 
 
         } catch (ParseException $exception) {
             printf('Unable to parse the YAML string: %s', $exception->getMessage());
         }
-
-
     }
 
 
@@ -143,13 +185,21 @@ class RunTestsCommand extends Command
         }
 
         $resolvers = [
-            'directory' => $directory ? fn() => new DirectoryResolver($directory, $ignoreClasses) : fn() => throw new \InvalidArgumentException(
+            'directory' => $directory ? fn() : TestCaseResolverInterface => new DirectoryResolver(
+                $directory, $ignoreClasses
+            ) : fn() => throw new \InvalidArgumentException(
                 'Please provide a directory to scan through the test classes'
             ),
-            'file' => $file ? fn() => new FileResolver($file) : fn() => throw new \InvalidArgumentException(
+            'file' => $file ? fn() : TestCaseResolverInterface => new FileResolver(
+                $file,
+                $ignoreClasses
+            ) : fn() => throw new \InvalidArgumentException(
                 'Please provide a file to resolve'
             ),
-            'list' => $testClasses ? fn() => new ArrayTestResolver($testClasses) : fn() => throw new \InvalidArgumentException(
+            'list' => $testClasses ? fn() : TestCaseResolverInterface => new FileListResolver(
+                $testClasses,
+                $ignoreClasses
+            ) : fn() => throw new \InvalidArgumentException(
                 'Please provide a test classes to run'
             )
 
@@ -160,11 +210,13 @@ class RunTestsCommand extends Command
 
         if (!$resolver) {
             throw new \InvalidArgumentException(
-                sprintf('Invalid resolver "%s" provided, available resolvers are %s, %s', $resolverName, 'directory', 'file')
+                sprintf('Invalid resolver "%s" provided, available resolvers are %s, %s, list', $resolverName, 'directory', 'file')
             );
         }
 
+
         $resolver = $resolver();
+
         $testql = new TestQl(
             $resolver, $verbose, $logging, $style
         );

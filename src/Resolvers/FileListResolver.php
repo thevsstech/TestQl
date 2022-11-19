@@ -5,6 +5,7 @@ namespace NovaTech\TestQL\Resolvers;
 use NovaTech\TestQL\Interfaces\TestCaseResolverInterface;
 use NovaTech\TestQL\TestCase;
 
+
 class FileListResolver implements  TestCaseResolverInterface
 {
     public function __construct(
@@ -14,50 +15,73 @@ class FileListResolver implements  TestCaseResolverInterface
     {
 
     }
-    public static function getResolverClassFromPath(string $path, array $ignoreClasses): ?TestCase{
-        $content = file_get_contents($path);
-        if(!str_contains('<?php', $content)){
-            return null;
+
+    private static function getNamespace(string $content)
+    {
+        $re = '/namespace (.*?);/m';
+        $namespaceMatches = null;
+        preg_match($re, $content, $namespaceMatches );
+        if ($namespaceMatches && count($namespaceMatches)) {
+            return $namespaceMatches[1];
         }
-        require_once $file;
+        return '';
+    }
+    public static function getResolverClassFromPath(string $file, array $ignoreClasses): ?TestCase{
+        $file = realpath($file);
+
+        if (!file_exists($file)) {
+            throw new \RuntimeException(sprintf(
+                'File "%s" does not exist.',
+                $file
+            ));
+        }
+
+        $content = file_get_contents($file);
+        if(!str_contains($content, '<?php')){
+            throw new \RuntimeException(
+                sprintf(
+                    'File "%s" is not a valid PHP file.',
+                    $file
+                )
+            );
+        }
 
         // get the file name of the current file without the extension
         // which is essentially the class name
-        $class = basename($file, '.php');
+        $className = trim(basename($file, '.php'));
+        $namespace = static::getNamespace($content);
+        $className = $namespace. '\\' . $className;
+
 
         // if file is ignored we will pass it
-        if (in_array($class, $ignoreClasses)) {
+        if (in_array($className, $ignoreClasses)) {
             return null;
         }
 
-        return new $class;
+        return new $className;
     }
 
     public function getTestCases(): array
     {
-        $this->checkDirectory();
         $testCases = [];
-
+        $files= [];
 
         foreach ($this->fileList as $file)
         {
-            if (!file_exists($file)) {
-                throw new \RuntimeException(sprintf(
-                    'File "%s" does not exist.',
-                    $file
-                ));
-            }
+            $files = [
+                ...$files,
+                ...glob($file)
+            ];
+        }
 
+        foreach ($files as $file)
+        {
             $class = static::getResolverClassFromPath(
                 $file,
                 $this->ignoreClasses
             );
 
-            if (class_exists($class) && is_a($class, TestCase::class))
-            {
-                $obj = new $class;
-                $testCases[] = $obj;
-            }
+            $testCases[] = $class;
         }
 
        return $testCases;
