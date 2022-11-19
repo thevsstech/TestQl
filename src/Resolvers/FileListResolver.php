@@ -26,7 +26,18 @@ class FileListResolver implements  TestCaseResolverInterface
         }
         return '';
     }
-    public static function getResolverClassFromPath(string $file, array $ignoreClasses): ?TestCase{
+
+    /**
+     * this function will try to resolve from given path
+     * if 'strict' is true it will throw exception either class is not found
+     * or its not a TestCase, if strict is false just ignore it
+     *
+     * @param string $file
+     * @param array $ignoreClasses
+     * @param bool $strict
+     * @return TestCase|null
+     */
+    public static function getResolverClassFromPath(string $file, array $ignoreClasses, bool $strict = false): ?TestCase{
         $file = realpath($file);
 
         if (!file_exists($file)) {
@@ -53,12 +64,49 @@ class FileListResolver implements  TestCaseResolverInterface
         $className = $namespace. '\\' . $className;
 
 
+
+        if (!class_exists($className)) {
+
+            if ($strict) {
+                throw new \RuntimeException(
+                    sprintf(
+                        'Class "%s" does not exist.',
+                        $className
+                    )
+                );
+            }else{
+                return null;
+            }
+
+        }
+
+
         // if file is ignored we will pass it
         if (in_array($className, $ignoreClasses)) {
             return null;
         }
 
-        return new $className;
+        try {
+            $object = new $className;
+            print_r($object);
+            if (!$object instanceof TestCase) {
+                if ($strict) {
+                    throw new \RuntimeException(
+                        sprintf(
+                            'Class "%s" is not a valid test case.',
+                            $className
+                        )
+                    );
+                }else{
+                    return null;
+                }
+            }else{
+                return $object;
+            }
+        }catch (\Exception $e){
+            return null;
+        }
+
     }
 
     public function getTestCases(): array
@@ -81,7 +129,9 @@ class FileListResolver implements  TestCaseResolverInterface
                 $this->ignoreClasses
             );
 
-            $testCases[] = $class;
+            if ($class) {
+                $testCases[] = $class;
+            }
         }
 
        return $testCases;
