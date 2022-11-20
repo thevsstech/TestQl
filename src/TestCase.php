@@ -30,6 +30,25 @@ abstract class TestCase
     private bool $isVerbose = false;
     private ?array $flatten = null;
     private array $parameterMapping = [];
+    private array $defaults = [];
+
+    /**
+     * @return array
+     */
+    public function getDefaults(): array
+    {
+        return $this->defaults;
+    }
+
+    /**
+     * @param array $defaults
+     * @return TestCase
+     */
+    public function setDefaults(array $defaults): static
+    {
+        $this->defaults = $defaults;
+        return $this;
+    }
 
     /**
      * @param bool $isVerbose
@@ -312,38 +331,33 @@ abstract class TestCase
         return $this;
     }
 
-    public function getFilteredTests(array $tests, array $groups)
-    {
 
-        if (empty($groups)) {
-            return $tests;
-        }
 
-        $filteredTests = [];
-        foreach ($tests as $test) {
-            foreach ($groups as $group) {
-                $testClass = get_class($test);
-                if (isset($this->groupsFixtureMapping[$group][$testClass])) {
-                    $filteredTests[$testClass] = $test;
-                    continue 2;
-                }
-            }
-        }
-
-        return $filteredTests;
-    }
-
+    /**
+     *
+     * @param array $response
+     * @param string $field
+     * @return array
+     */
     private function getAsteriksItems(array $response, string $field) : array{
         $items = [];
         $flattenItems = $this->getFlattenResponse($response);
 
+        // our fields will be given like example.test.field
+        // we want to convert it to be example#test#field
         $field = str_replace('.', '#', $field);
+        // convert all *'s to (.*?) so we can match them with regex
+        // this supports usages like example.*.field
+        // or even more advanced stuff like ex*.field.te*
+        // this last example will be convered to ex(.*?)#field#te(.*?)
+        // which will match the given example.field.test
         $reg = '/^'. str_replace(
             '*',
             '(.*?)',
             $field
         ).'$/m';
 
+        // loop throght all flatten
        foreach ($flattenItems as $key => $value){
            $matches = [];
            preg_match($reg, $key, $matches);
@@ -372,8 +386,20 @@ abstract class TestCase
     public function getArrKey(array $response, string $field) : array
     {
 
-        if (str_contains($field, '.*')) {
-            return $this->getAsteriksItems($response, $field);
+        // tries to resolve items based on "*"
+        // if the field contains "*" character this means we can match
+        // multiple values, to do so we will flatten them and match using regex.
+        // * means it can match everything
+        // todo: Allow custom regex here.
+        if (str_contains($field, '*')) {
+
+            $matches =  $this->getAsteriksItems($response, $field);
+
+            $this->outputVerbose(
+                sprintf('%d Matches for %s field', count($matches), $field)
+            );
+
+            return $matches;
         }
 
         return [
@@ -412,18 +438,18 @@ abstract class TestCase
     ): Response
     {
         $client = new Client($options);
+        $defaultHeaders = $this->defaults['headers'] ?? [];
 
+        // set default headers
+        // note: user defined headers will override the old ones
+        $headers = [
+            ...$defaultHeaders,
+            ...$headers
+        ];
 
-        if (!isset($headers['accept'])) {
-            $headers['accept'] = 'application/json';
-        }
 
         if(!isset($headers['host'])) {
             $headers['host'] =  parse_url($url)['host'] ?? null;
-        }
-
-        if (is_array($payload)) {
-            $headers['Content-Type'] = 'application/json';
         }
 
 
@@ -447,6 +473,7 @@ abstract class TestCase
             $statusCode = $response->getStatusCode();
             $body = json_decode((string) $response->getBody(), true);
         }catch(RequestException $requestException){
+
             $response = $requestException->getResponse();
 
             if (!$response) {

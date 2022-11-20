@@ -30,7 +30,8 @@ class TestQl
         public readonly TestCaseResolverInterface $resolver,
         public readonly bool                      $verbose = false,
         public readonly bool                      $logging = false,
-        private readonly ?SymfonyStyle             $style = null
+        private ?SymfonyStyle            $style = null,
+        private readonly array                    $defaults = []
 
     )
     {
@@ -50,14 +51,20 @@ class TestQl
     /**
      * @param SymfonyStyle|null $style
      */
-    public function setStyle(?SymfonyStyle $style)
+    public function setStyle(?SymfonyStyle $style): static
     {
         $this->style = $style;
         return $this;
     }
 
+
     private function checkTests(): void
     {
+        // makes sure all the given tests are instance of TestCase
+        // "strict" option in run:test cammand does not applies since
+        // "strict" command are used in the Resolvers, after classes
+        // are resolved and came here we won't allow any other class than a
+        // subclass of TestCase
         foreach ($this->tests as $test) {
             if (!$test instanceof TestCase) {
                 throw new \UnexpectedValueException(sprintf('
@@ -91,10 +98,10 @@ class TestQl
 
 
     /**
-     * @psalm-param array<class-string<DependentFixtureInterface>, int> $sequences
-     * @psalm-param iterable<class-string<FixtureInterface>>|null       $classes
+     * @psalm-param array<class-string<TestDependsOnInterface>, int> $sequences
+     * @psalm-param iterable<class-string<TestCase>>|null       $classes
      *
-     * @psalm-return array<class-string<FixtureInterface>>
+     * @psalm-return array<class-string<TestCase>>
      */
     private function getUnsequencedClasses(array $sequences, ?iterable $classes = null): array
     {
@@ -122,7 +129,7 @@ class TestQl
      */
     private function orderFixturesByDependencies($allTests)
     {
-        /** @psalm-var array<class-string<DependentFixtureInterface>, int> */
+        /** @psalm-var array<class-string<TestDependsOnInterface>, int> $sequenceForClasses */
         $sequenceForClasses = [];
 
 
@@ -205,8 +212,13 @@ class TestQl
             return $tests;
         }
 
-        $testsPrepared = $this->convertTests($tests);
 
+        /**
+         * loops through the tests, looks for groups
+         * If a tests groups are in our groups we will run it, other wise it will be skipped
+         * @see GroupedTestInterface to figure out how groups are defined
+         *
+         */
         foreach ($tests as $test => $instance) {
             if ($instance instanceof GroupedTestInterface) {
                 $testGroups = $instance->getGroups();
@@ -222,6 +234,13 @@ class TestQl
         return $newTests;
     }
 
+    /**
+     * Will convert the tests from [ new AbcTestCase(), new TestCaseDen() ]
+     * to [AbcTestCase::class => AbcTestCase()]
+     *
+     * @param array $tests
+     * @return array
+     */
     public function convertTests(array $tests) : array
     {
         $testsPrepared = [];
@@ -254,12 +273,22 @@ class TestQl
 
             // set symfony style
             if ($test instanceof TestCase) {
+
+                // we will set verbose and style to test case
+                // also set defaults so we can pass base uri to others
                 $test->setIsVerbose($this->verbose);
                 $test->setSymfonyStyle($this->style);
+                $test->setDefaults($this->defaults);
             }
 
             $className =get_class($test);
             try {
+
+                // local authentication varaible is an reflection of persistent authentication
+                // we only use this authentication if test case implements AuthenticatedTestCase
+                // to change persistent authentication a TestCase must implement PersistentAuthenticationInterface
+                // otherwise even if a TestCase implements AuthenticatedTestCase, the results of this
+                // authentication will kept local and won't affect others.
                 $localAuthentication = $test instanceof AuthenticatedTestCase ? $persistentAuthentication : new AuthenticationCapsule(
                     'none',
                     ''

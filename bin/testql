@@ -23,7 +23,8 @@ $composer = json_decode(
 
 $application = new \Symfony\Component\Console\Application('Testql', $composer['version'] );
 $application->addCommands([
-    new \NovaTech\TestQL\Command\RunTestsCommand()
+    new \NovaTech\TestQL\Command\RunTestsCommand(),
+    new \NovaTech\TestQL\Command\ImportTestCommand()
 ]);
 
 $application->run();

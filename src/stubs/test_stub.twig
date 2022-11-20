@@ -1,0 +1,48 @@
+<?php
+
+{% if namespace is not null %}
+namespace {{ namespace}};
+{% endif %}
+
+{% if dependencies is not empty %}
+use NovaTech\TestQL\Interfaces\TestDependsOnInterface;
+{% endif %}
+
+{%  if groups is not empty %}
+use NovaTech\TestQL\Interfaces\GroupedTestInterface;
+{% endif  %}
+
+{% if authenticated %}
+use NovaTech\TestQL\Entities\AuthenticationCapsule;
+use NovaTech\TestQL\AuthenticatedTestCase;
+{% endif %}
+
+use NovaTech\TestQL\TestCase;
+
+final class {{ name }} extends {{ authenticated ? 'AuthenticatedTestCase' : 'TestCase' }} {{ implements }}{
+
+      {% if authenticated %}
+       public function authenticatedTest(?AuthenticationCapsule $authentication, mixed $payload = null): mixed{
+      {% else %}
+       public function test(mixed $payload = null): mixed{
+      {% endif %}
+
+             $headers = {{ headers|raw }};
+             $json = {{ json|raw }};
+             $options = [
+                 'headers' => $headers,
+                 'json' => $json
+            ];
+             $response = $this->request("{{ method }}", "{{ url }}", $options);
+             $this->assertResponseSuccessful($response, true);
+
+             return $payload;
+      }
+
+      {% if groups is not empty %}
+          public function getGroups(): array
+          {
+                return [{{ groups|raw }}];
+          }}
+      {% endif  %}
+}

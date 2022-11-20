@@ -4,6 +4,7 @@ namespace NovaTech\Tests\Cases;
 
 use NovaTech\TestQL\AuthenticatedTestCase;
 use NovaTech\TestQL\Entities\AuthenticationCapsule;
+use NovaTech\TestQL\Interfaces\GroupedTestInterface;
 use NovaTech\TestQL\Interfaces\TestDependsOnInterface;
 
 class TestApiResolvesDashboard extends AuthenticatedTestCase implements TestDependsOnInterface

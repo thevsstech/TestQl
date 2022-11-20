@@ -4,6 +4,7 @@ namespace NovaTech\TestQL\Command;
 
 use NovaTech\TestQL\Interfaces\TestCaseResolverInterface;
 use NovaTech\TestQL\Resolvers\ArrayTestResolver;
+use NovaTech\TestQL\Resolvers\ConfigResolver;
 use NovaTech\TestQL\Resolvers\DirectoryResolver;
 use NovaTech\TestQL\Resolvers\FileListResolver;
 use NovaTech\TestQL\Resolvers\FileResolver;
@@ -47,115 +48,6 @@ class RunTestsCommand extends Command
         $this->addOption('strict', 's', InputOption::VALUE_OPTIONAL, 'Test resolving should be strict');
     }
 
-    /**
-     * this function will try to read given config path
-     * if file could not found it will throw an array
-     * if file is exists it will read resolver, logging, verbose, options from it.
-     *
-     * @param string $configFilePath
-     * @param bool|null $verbose
-     * @param bool|null $logging
-     * @param string|null $resolverName
-     * @param string|null $file
-     * @param string|null $directory
-     * @param array|null $ignoreClasses
-     * @param array|null $testClasses
-     * @return void
-     */
-    private function getConfigContent(
-        string  $configFilePath,
-        ?bool   &$verbose,
-        ?bool   &$logging,
-        ?string &$resolverName,
-        ?string &$file,
-        ?string &$directory,
-        ?array  &$ignoreClasses,
-        ?array  &$testClasses,
-        ?bool   &$strict
-    ): void
-    {
-        if (!file_exists($configFilePath) || !is_readable($configFilePath)) {
-            throw new \InvalidArgumentException(
-                sprintf('Config file %s does not exist or not readable', $configFilePath)
-            );
-        }
-
-        $configContent = file_get_contents($configFilePath);
-
-        try {
-            $config = Yaml::parse($configContent);
-
-
-
-            if (isset($config['env'])) {
-                $environments = $config['env'];
-
-
-                if (!is_array($environments)) {
-                    throw new \InvalidArgumentException(
-                        '"env" defination in yaml must be an array'
-                    );
-                }
-
-                $_ENV = [
-                    ...$_ENV,
-                    ...$environments
-                ];
-
-                $_SERVER = [
-                    ...$_SERVER,
-                    ...$environments
-                ];
-            }
-
-
-            if (isset($config['verbose'])) {
-                $verbose = $config['verbose'];
-            }
-
-            if (isset($config['logging'])) {
-                $logging = $config['logging'];
-            }
-
-            if (isset($config['resolver'])) {
-                $resolverArray = $config['resolver'];
-                $resolverName = $resolverArray['name'] ?? null;
-
-
-                if (!$resolverName) {
-                    throw new \InvalidArgumentException(
-                        'You must provide a resolver to run tests'
-                    );
-                }
-
-                if (isset($resolverArray['file'])) {
-                    $file = $resolverArray['file'];
-                }
-
-                if (isset($resolverArray['directory'])) {
-                    $directory = $resolverArray['directory'];
-                }
-
-                if (isset($resolverArray['tests'])) {
-                    $testClasses = $resolverArray['tests'];
-                }
-
-                if (isset($resolverArray['ignored'])) {
-                    $ignoreClasses = $resolverArray['ignored'];
-                }
-
-                if (isset($resolverArray['strict'])) {
-                    $strict = $resolverArray['strict'];
-                }
-            }
-
-
-        } catch (ParseException $exception) {
-            printf('Unable to parse the YAML string: %s', $exception->getMessage());
-        }
-    }
-
-
     protected function execute(InputInterface $input, OutputInterface $output)
     {
 
@@ -170,6 +62,7 @@ class RunTestsCommand extends Command
         $configFilePath = $input->getOption('config-file') ?? null;
         $testClasses = $input->getOption('tests') ?? null;
         $strict = $input->getOption('strict') ?? true;
+        $defaults = [];
 
         if (!$configFilePath && !$resolverName) {
             throw new \InvalidArgumentException(
@@ -179,7 +72,8 @@ class RunTestsCommand extends Command
 
         if ($configFilePath) {
             $configFilePath = realpath($configFilePath);
-            $this->getConfigContent($configFilePath,
+            $configResolver = new ConfigResolver();
+            $configResolver->resolve($configFilePath,
                 $verbose,
                 $logging,
                 $resolverName,
@@ -187,7 +81,8 @@ class RunTestsCommand extends Command
                 $directory,
                 $ignoreClasses,
                 $testClasses,
-                $strict
+                $strict,
+                $defaults
             );
         }
 
@@ -225,7 +120,11 @@ class RunTestsCommand extends Command
         $resolver = $resolver();
 
         $testql = new TestQl(
-            $resolver, $verbose, $logging, $style
+            $resolver,
+            $verbose,
+            $logging,
+            $style,
+            $defaults
         );
 
         $count = count($resolver->getTestCases());
