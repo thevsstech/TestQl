@@ -21,9 +21,19 @@ class TestDirectives extends TestCase
             200,
             [
                 'example' => [
+                    'a' => 'b',
+                    'c' => 'd',
+                    'e' => 'f',
                     'test' => [
-                        'field' => 'test'
-                    ]
+                        'field' => 'test',
+                        'asd' => 'asd',
+                        'aaa' => 'b'
+                    ],
+                    3 => 4
+                ],
+                [
+                    'asdad' => 'asdasd',
+                    1 => 'asdds'
                 ]
             ],
             new RequestInformation('GET', '')
@@ -31,16 +41,16 @@ class TestDirectives extends TestCase
 
         $this->assertFieldToBe(
             $response,
-            'example.test.field',
+            '*.*.field',
             FieldType::STRING,
         );
 
-        $this->directive($response, 'example.test.field', Directive::EQUALS, 'test');
+        $this->directive($response, 'example.*.field', Directive::EQUALS, 'test');
         $this->directive($response, 'example.test.field', Directive::CONTAINS, 'te');
-        $this->directive($response, 'example.test.field', Directive::NOT_CONTAINS, 'a');
-        $this->directive($response, 'example.test.field', Directive::STARTS_WITH, 'te');
-        $this->directive($response, 'example.test.field', Directive::ENDS_WITH, 'st');
-        $this->directive($response, 'example.test.field', Directive::IS_NOT_EMPTY);
+        $this->directive($response, '*.test.field', Directive::NOT_CONTAINS, 'a');
+        $this->directive($response, 'example.test.*', Directive::STARTS_WITH, 'te');
+        $this->directive($response, 'example.*.field', Directive::ENDS_WITH, 'st');
+        $this->directive($response, '*.test.*', Directive::IS_NOT_EMPTY);
 
 
 

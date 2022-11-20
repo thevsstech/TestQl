@@ -5,10 +5,8 @@ namespace NovaTech\TestQL;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Psr7\Request;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use NovaTech\TestQL\Entities\AuthenticationCapsule;
 use NovaTech\TestQL\Entities\Directive;
@@ -16,6 +14,7 @@ use NovaTech\TestQL\Entities\FieldType;
 use NovaTech\TestQL\Entities\RequestInformation;
 use NovaTech\TestQL\Entities\Response;
 use NovaTech\TestQL\Exceptions\UnexpectedValueException;
+use NovaTech\TestQL\Service\FlattenService;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 abstract class TestCase
@@ -29,6 +28,8 @@ abstract class TestCase
     private array $previousResponses = [];
     private ?SymfonyStyle $symfonyStyle = null;
     private bool $isVerbose = false;
+    private ?array $flatten = null;
+    private array $parameterMapping = [];
 
     /**
      * @param bool $isVerbose
@@ -129,6 +130,14 @@ abstract class TestCase
         return $this;
     }
 
+    private function getFlattenResponse(array $response): array
+    {
+        if (!$this->flatten) {
+            $this->flatten = FlattenService::flatArray($response, '');
+        }
+
+        return $this->flatten;
+    }
     /**
      * @param Response $response
      * @return $this
@@ -323,45 +332,53 @@ abstract class TestCase
 
         return $filteredTests;
     }
+
+    private function getAsteriksItems(array $response, string $field) : array{
+        $items = [];
+        $flattenItems = $this->getFlattenResponse($response);
+
+        $field = str_replace('.', '#', $field);
+        $reg = '/^'. str_replace(
+            '*',
+            '(.*?)',
+            $field
+        ).'$/m';
+
+       foreach ($flattenItems as $key => $value){
+           $matches = [];
+           preg_match($reg, $key, $matches);
+
+
+           if (!count($matches)) {
+               continue;
+           }
+
+           $matchedParameters = array_values(
+               array_slice(
+                   $matches, 1
+               )
+           );
+           $this->parameterMapping[$matches[0]] = $matchedParameters;
+           $items[$matches[0]] = $value;
+       }
+
+
+       return $items;
+    }
+
     /**
      * @throws UnexpectedValueException
      */
-    public function getArrKey(array $response, string $field)
+    public function getArrKey(array $response, string $field) : array
     {
-        if (!str_contains($field, '.*')) {
-            return Arr::get($response, $field, null);
+
+        if (str_contains($field, '.*')) {
+            return $this->getAsteriksItems($response, $field);
         }
 
-        $split = explode('.*', $field);
-        if (count($split) > 2) {
-            throw new UnexpectedValueException(
-                sprintf(
-                    'Expected field "%s" cant have more than one asterisk fields"',
-                    $field
-                )
-            );
-        }
-
-
-        $returns = [];
-
-
-        $startPathItems = Arr::get($response, $split[0]);
-
-        foreach ($startPathItems as $item) {
-            $rest = $split[1];
-            $posOfDot = strpos($rest, '.', 0);
-
-            if ($posOfDot !== false) {
-
-                $rest = Str::after($rest, '.');
-            }
-
-            $returns[] = Arr::get($item, $rest, null);
-        }
-
-        return $returns;
-
+        return [
+            Arr::get($response, $field)
+        ];
     }
 
     protected function outputVerbose(string $log): void
